@@ -1,0 +1,33 @@
+(func Pow a b
+	c <- 1
+	(for x in (range 0 b)
+		c <- (Mul a c)	
+	)
+	(return c)
+)
+
+
+(writeln (Pow 9 2))
+; (class A
+; 	(set
+; 		a <- 9
+; 		atoms <- (list [int])
+; 	)
+
+; 	(func testing
+; 		(writeln "Testing!")
+; 	)
+
+; 	(init p
+; 		(writeln p)
+; 		(writeln a)
+; 		atoms <- (append atoms 9)
+; 		(testing)
+; 	)
+; )
+
+
+
+; (write (Pow 9 2))
+
+; a <- (A 8)

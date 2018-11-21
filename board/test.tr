@@ -1,0 +1,5 @@
+l <- (list [])
+empty <- (list [])
+l <- (append l empty)
+l[0] <- (append l[0] empty)
+(println l[0])

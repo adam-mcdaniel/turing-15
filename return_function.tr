@@ -1,0 +1,8 @@
+(func attempt
+    (return
+        (Add 1 1)
+    )
+)
+
+a <- (attempt)
+(print a)

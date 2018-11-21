@@ -1,0 +1,22 @@
+; welcome to the turing language!!!
+
+(func action input
+	checkString <- (inStr "look" input)
+	(if checkString
+		(return "You look around."))
+
+	checkString <- (inStr "touch" input)
+	(if checkString
+		(return "You touch.") ) )
+
+(func game
+	input <- ""
+	(while True
+		(writeln "You are in a moist room, what do you stroke?")
+		(write ">")
+		input <- (read)
+		(console "clear")
+		output <- (action input)
+		(write output) ) )
+
+(game)

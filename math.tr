@@ -1,0 +1,63 @@
+(require "pow")
+(require "prompt")
+
+
+x <- (Mul
+	(Add 1 1)
+	(Add 1 1)
+)
+
+
+(writeln x)
+
+
+; (while True
+; 	(write "$")
+; 	input <- (read)
+; 	(console input)
+; )
+
+
+nine_two <- (Add
+	"9^2 is "
+	(String
+		(Pow 9 2)
+	)
+)
+
+
+(writeln
+	nine_two
+)
+
+
+a <- (Int (prompt "(1>") )
+b <- (Int (prompt "(2>") )
+
+
+(writeln (Pow a b))
+
+
+(func test
+	(writeln "Okay")
+)
+
+
+; input <- (Int (read))
+
+; (writeln (Add input 1))
+
+; (if (Is (Pow a b) (Pow 2 2))
+; 	(write a)
+; 	(write " to the ")
+; 	(write b)
+; 	(writeln " is not 4!")
+; )
+; (elif  (Is (Pow a b) (Pow 4 2))
+; 	(write a)
+; 	(write " to the ")
+; 	(write b)
+; 	(write " is ")
+; 	(write (Pow a b))
+; 	(writeln "!")
+; )

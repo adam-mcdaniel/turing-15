@@ -1,0 +1,488 @@
+
+(!require "parsley")
+(!require "sys")
+(!require "os")
+(!require "pyparsing")
+
+!"listOfVariablesAndTypes = {}"
+
+listOfFunctions <- (list [])
+
+lastClassName <- ""
+
+pwd <- (os.path.dirname sys.argv[2])
+(print pwd)
+
+scope <- ""
+parser <- None
+
+indentation_level <- 0
+
+class_vars <- []
+
+
+(func assign op 
+	(return op)
+)
+
+(func returnPrint op
+	# if op == "<-":
+	# 	return "="
+	(print op)
+	(return op)
+)
+
+(func g_or_l var
+	!"global class_vars"
+
+	store_var <- var
+
+	(if (inStr "." var)
+		var <- (String !"var[:var.index('.')]")
+	)
+	(if (inStr "[" var)
+		var <- (String !"var.replace(var[var.index('['):var[::-1].index(']')-1]+']', '')")
+	)
+	(if (In var class_vars)
+		(return (Add "this." store_var))
+	)
+	(return store_var)
+)
+
+
+(func g_or_l_args var
+	!"global class_vars"
+
+	list_vars_new <- (list [])
+	store_var <- ""
+
+
+	(for var in list_vars
+		store_var <- var
+		(if "." in var
+			var <- (String "var[:var.index('.')]")
+		)
+		(if "[" in var
+			var <- (String "var.replace(var[var.index('['):var[::-1].index(']')-1]+']', '')")
+		)
+
+		(if var in class_vars
+			list_vars_new <- append(list_vars_new (Add "this." store_var))
+		)
+		(else
+			list_vars_new <- (append store_var)
+		)
+	)
+	(return list_vars_new)
+
+)
+
+(func empty_locals
+	"!global class_vars"
+	class_vars <- []
+	(return "")
+)
+
+(func append_local_var var
+	!"global class vars"
+	
+	(if "." in var
+		var <- (String "var[:var.index('.')]")
+	)
+	(if "[" in var
+		var <- (String "var.replace(var[var.index('['):var[::-1].index(']')-1]+']', '')")
+	)
+	class_vars <- (append class_vars var)
+	(return var)
+)
+
+(func indent contents
+	!"global indentation_level"
+	indentation_level <- (Add indentation_level 1)
+	content_lines <- contents.split("\n")
+	return_contents <- (Add (Add "\n" (Mul "\t" indentation_level) ) !"+('\n'+'\t'*indentation_level).join(content_lines)")
+	(return return_contents)
+)
+
+(func unindent
+	!"global indentation_level"
+	indentation_level <- indentation_level - 1
+	(return "")
+)
+
+(func require name
+	!"global parser, pwd"
+	name <- (name.replace "\"" "")
+	f <- (open (path.join pwd name) "r")
+	contents <- (f.read)
+	(f.close)
+	(writeln contents)
+	(return !"parser(contents).req()")
+)
+
+(func moveFunction func
+	!"global listOfFunctions"
+	listOfFunctions <- (append func)
+	(return "")
+)
+
+(func returnParameters listOfParameters
+	changedList <- (list [])
+	(if (Greater (len listOfParameters) 0)
+		i <- 0
+		(for j in !"listOfParameters"
+			changedList <- (append (Add listOfParameters[i] ", "))
+			i <- (Add i 1)
+		)
+		changedList <- (append (Add listOfParameters[i] " "))
+		(return !"''.join(changedList)")
+	)
+	(else 
+		(return "")
+	)
+)
+
+
+def returnClassParameters(listOfParameters):
+	# print(listOfParameters)
+	changedList = []
+	if len(listOfParameters) > 0:
+		i = 0
+		for j in listOfParameters[:-1]:
+			changedList.append(listOfParameters[i]+", ")
+			i += 1
+		changedList.append(listOfParameters[i]+" ")
+		# changedList = [','] + changedList
+		if len(changedList) > 0:
+			changedList = [','] + changedList
+		return ''.join(changedList)
+	else:
+		return ''
+
+
+
+if sys.argv[1] == '-p':
+	print("Python it is!")
+
+	keywords = ['for', 'while', 'if', 'elif', 'else']
+	arg_keywords = ['read', 'print', 'println', 'system', 'pass']
+
+	parser = parsley.makeGrammar("""
+
+allw = w endl w
+
+w = <(' ' | '\\t')*>
+endl = <('\\n')*>
+mw = <('\\n')+>
+
+digit = anything:x ?(x in '0123456789.')
+char = anything:x ?(x in '0123456789_.')
+number = (<digit+>:ds -> str(ds)
+			| '-' <digit+>:ds -> '-' + str(ds)
+			)
+
+letter = anything:x ?(x in 'abcdefghijklmnopqrstuvwxyz' or x in 'abcdefghijklmnopqrstuvwxyz'.upper())
+
+indice = <'['+>:a <( (letter|char)
+				| w (number|identifier) w 
+			)*>:b <']'+>:c -> str(a) + str(b) + str(c)
+
+identifier = w <(letter|char|indice)+>:ds -> str(ds)
+
+
+string = (force_args | multi_line_string | single_line_string)
+force_args =  '!"' (~'"' anything)*:c '"' -> ''.join(c)
+single_line_string = '"' (~'"' anything)*:c '"' -> '"' + ''.join(c) + '"'
+multi_line_string = '\\"\\"\\"' (~'\\"\\"\\"' anything)*:c '\\"\\"\\"' -> '\\"\\"\\"' + ''.join(c) + '\\"\\"\\"'
+
+# assign = ('=' | '+=' | '-='):a -> a
+assign = '<-' -> '='
+
+operator = anything:x ?(x in '*/+-()') -> str(x)
+
+
+bool = ('True' | 'False'):a -> str(a)
+
+
+# functioncall_object = functioncall | past_assignment | number | bool | string | identifier
+functioncall_object = functioncall | number | bool | string | identifier
+object = number | bool | string | identifier
+
+whileloop = '(' allw 'while' w functioncall_object:a mw statement*:b allw ')' allw -> 'while (' + g_or_l(str(a)) + '):\\n' + indent(''.join(b)) + '\\n' + unindent()
+
+forloop = '(' allw 'for' w identifier:a w 'in' w (functioncall|identifier):b mw statement*:c allw ')' allw -> 'for ' + str(a) + ' in ' + g_or_l(str(b)) + ':\\n' + indent(''.join(c)) + '\\n' + unindent()
+
+
+if = '(' allw 'if' w functioncall_object:a mw statement*:b allw ')' allw -> 'if (' + g_or_l(str(a)) + '):\\n' + indent(''.join(b)) + '\\n' + unindent()
+
+elif = '(' allw 'elif' w functioncall_object:a mw statement*:b allw ')' allw -> 'elif (' + g_or_l(str(a)) + '):\\n' + indent(''.join(b)) + '\\n' + unindent()
+else = '(' allw 'else' mw statement*:a allw ')' allw -> 'else:\\n' + indent(''.join(a)) + '\\n' + unindent()
+
+
+comment = allw ';' <(~'\\n' anything)*> -> ''
+
+										
+past_assignment = allw identifier:left w assign:op w ( bool:right -> 				g_or_l(str(left)) + assign(str(op)) + g_or_l(str(right))
+										| number:right -> 							g_or_l(str(left)) + assign(str(op)) + g_or_l(str(right))
+										| string:right 	-> 							g_or_l(str(left)) + assign(str(op)) + g_or_l(str(right))
+										| identifier:right -> 						g_or_l(str(left)) + assign(str(op)) + g_or_l(str(right))
+										| functioncall:right -> 					g_or_l(str(left)) + assign(str(op)) + g_or_l(str(right))
+										)
+										
+method_assignment = allw identifier:left w assign:op w ( bool:right -> 				g_or_l(str(left)) + assign(str(op)) + g_or_l(str(right))
+										| number:right -> 							g_or_l(str(left)) + assign(str(op)) + g_or_l(str(right))
+										| string:right 	-> 							g_or_l(str(left)) + assign(str(op)) + g_or_l(str(right))
+										| identifier:right -> 						g_or_l(str(left)) + assign(str(op)) + g_or_l(str(right))
+										| functioncall:right -> 					g_or_l(str(left)) + assign(str(op)) + g_or_l(str(right))
+										)
+
+functioncall = allw '(' identifier:func ?(func not in keywords) allw (allw functioncall_object)*:args allw ')' w -> g_or_l(str(func)) + '(' + str(','.join(g_or_l_args(args))) + ')'
+local_functioncall = allw '(' identifier:func ?(func not in keywords) allw (allw functioncall_object)*:args allw ')' w -> g_or_l(str(func)) + '(' + str(','.join(args)) + ')'
+
+
+
+
+function_begin = '(' allw 'func' w identifier:a -> 'def ' + str(a)
+functiondef = function_begin:a w (w object)*:b allw statement*:c allw ')' allw -> a + '(' + str(returnParameters(b) + '):\\n' + indent(''.join(c)) + '\\n\\n') + unindent()
+
+
+require =  '(' allw 'require' w string:a w ')' -> require(a+'.tr')
+cpp_require =  '(' allw '!require' w (string|identifier):a w ')' -> moveFunction('from '+str(a).replace('"', '')+' import *\\n\\n')
+imported_require =  '(' allw 'require' w string:a w ')' -> ''
+
+return = (
+		allw '(' w 'return' w functioncall_object:a w ')' w -> 'return ' + g_or_l(str(a))
+		)
+pass = (
+		allw '(' w 'pass':a w ')' w -> 'pass'
+		)
+
+class_begin = '(' allw 'class' w identifier:a -> 'class ' + str(a)
+classdef = (
+			class_begin:a allw class_statement*:b allw ')' allw -> moveFunction( str(a) + ':\\n' + indent(''.join(b)) + '\\n\\n') + unindent() + empty_locals()
+			| class_begin:a w identifier:b allw class_statement*:c allw ')' allw -> moveFunction( str(a) + '(' + str(b) + '):\\n' + indent(''.join(c)) + '\\n\\n') + unindent() + empty_locals()
+			)
+
+constructor = '(' allw 'init' w (w object)*:a allw method_statement*:b allw ')' allw -> '\\n' + 'def __init__(this' + str(returnClassParameters(a)) + '):\\n' + indent(''.join(b)) + '\\n' + unindent()
+methoddef = '(' allw 'func' w identifier:a w (w object)*:b allw method_statement*:c allw ')' allw -> 'def ' + append_local_var(a) + '(this' + str(returnClassParameters(b)) + '):\\n' + indent(''.join(c)) + '\\n' + unindent()
+
+
+set = allw identifier:a w assign w object:b allw -> append_local_var(a) + ' = ' + str(b) + '\\n'
+
+# list = allw identifier:a w assign w '(' w 'list' w '[' '['*:q w (identifier|w):b w ']' ']'*:u w ')' w -> append_local_var(a) + ' = [' + len(q)*'[' + len(u)*']' + ']'
+list = allw identifier:a w assign w '(' w 'list' w '[' '['*:q w (identifier|w):b w ']' ']'*:u w ')' w -> g_or_l(a) + ' = [' + ']'
+set_list = allw identifier:a w assign w '(' w 'list' w '[' '['*:q w (identifier|w):b w ']' ']'*:u w ')' w -> append_local_var(a) + ' = [' + ']'
+
+set_function_call = allw identifier:a w assign w local_functioncall:b allw -> append_local_var(a) + ' = ' + str(b) + '\\n'
+
+setmethod = '(' allw 'set' allw (allw set|set_list|set_function_call|comment)*:a allw ')' allw -> '\\n'.join(a)+'\\n'
+
+
+class_statement = ( allw comment
+			| allw list:a endl allw -> a + "\\n"
+			| allw force_args:a endl allw -> a + "\\n"
+			# | allw print:a endl allw  -> a + "\\n"
+			# | allw read:a endl allw  -> a + "\\n"
+			# | allw system:a endl allw  -> a + "\\n"
+			| allw return:a endl allw  -> a + "\\n"
+			| allw pass:a endl allw  -> a + "\\n"
+			| allw whileloop:a -> a + "\\n"
+			| allw forloop:a -> a + "\\n"
+			| allw if:a -> a + "\\n"
+			| allw elif:a -> a + "\\n"
+			| allw else:a -> a + "\\n"
+			| allw setmethod:a -> a + "\\n"
+			| allw constructor:a -> a + "\\n"
+			| allw methoddef:a -> a + "\\n"
+			| allw functioncall:a endl allw  -> a + "\\n"
+			)
+
+statement = ( allw comment
+			| allw list:a endl allw -> a + "\\n"
+			| allw force_args:a endl allw -> a + "\\n"
+			# | allw set:a endl allw -> a + "\\n"
+			| allw past_assignment:a endl allw  -> a + "\\n"
+			# | allw print:a endl allw  -> a + "\\n"
+			# | allw read:a endl allw  -> a + "\\n"
+			# | allw system:a endl allw  -> a + "\\n"
+			| allw return:a endl allw  -> a + "\\n"
+			| allw pass:a endl allw  -> a + "\\n"
+			| allw whileloop:a -> a + "\\n"
+			| allw forloop:a -> a + "\\n"
+			| allw if:a -> a + "\\n"
+			| allw elif:a -> a + "\\n"
+			| allw else:a -> a + "\\n"
+			| allw classdef:a endl allw -> a
+			| allw functiondef:a -> a + "\\n"
+			| allw cpp_require:a endl allw  -> a
+			| allw require:a endl allw  -> a
+			| allw functioncall:a endl allw  -> a + "\\n"
+			)
+
+method_statement = ( allw comment
+			| allw list:a endl allw -> a + "\\n"
+			| allw force_args:a endl allw -> a + "\\n"
+			# | allw set:a endl allw -> a + "\\n"
+			| allw method_assignment:a endl allw  -> a + "\\n"
+			# | allw print:a endl allw  -> a + "\\n"
+			# | allw read:a endl allw  -> a + "\\n"
+			# | allw system:a endl allw  -> a + "\\n"
+			| allw return:a endl allw  -> a + "\\n"
+			| allw pass:a endl allw  -> a + "\\n"
+			| allw whileloop:a -> a + "\\n"
+			| allw forloop:a -> a + "\\n"
+			| allw if:a -> a + "\\n"
+			| allw elif:a -> a + "\\n"
+			| allw else:a -> a + "\\n"
+			| allw classdef:a endl allw -> a
+			| allw functiondef:a -> a + "\\n"
+			| allw cpp_require:a endl allw  -> a
+			| allw require:a endl allw  -> a
+			| allw functioncall:a endl allw  -> a + "\\n"
+			)
+
+imported = ( allw comment
+			| allw list:a endl allw -> a + "\\n"
+			| allw force_args:a endl allw -> a + "\\n"
+			# | allw set:a endl allw -> a + "\\n"
+			| allw past_assignment:a endl allw  -> a + "\\n"
+			# | allw print:a endl allw  -> a + "\\n"
+			# | allw read:a endl allw  -> a + "\\n"
+			# | allw system:a endl allw  -> a + "\\n"
+			| allw return:a endl allw  -> a + "\\n"
+			| allw pass:a endl allw  -> a + "\\n"
+			| allw whileloop:a -> a + "\\n"
+			| allw forloop:a -> a + "\\n"
+			| allw if:a -> a + "\\n"
+			| allw elif:a -> a + "\\n"
+			| allw else:a -> a + "\\n"
+			| allw classdef:a endl allw -> a
+			| allw functiondef:a -> a + "\\n"
+			| allw cpp_require:a endl allw  -> a
+			| allw imported_require:a endl allw  -> a
+			| allw functioncall:a endl allw  -> a + " \\n"
+			)
+
+
+req = (
+		imported+:a -> ''.join(a)
+		)
+
+expr = (
+		statement+:a -> returnPrint(''.join(a))
+		)
+
+# expr = (
+# 		math:a -> a
+# 		)
+
+""", {
+		"require" : require,
+		"assign" : assign,
+		"returnPrint" : returnPrint,
+		"returnParameters" : returnParameters,
+		"returnClassParameters" : returnClassParameters,
+		"keywords" : keywords,
+		"moveFunction" : moveFunction,
+		"indent" : indent,
+		"unindent" : unindent,
+		"g_or_l" : g_or_l,
+		"g_or_l_args" : g_or_l_args,
+		"empty_locals" : empty_locals,
+		"append_local_var" : append_local_var,
+		"arg_keywords" : arg_keywords
+	})
+
+
+	# while True:
+	# 	print (parser(raw_input(">")).expr())
+
+
+	with open(sys.argv[2], "r") as f:
+	    script = f.read()
+	    f.close()
+	    script = "".join([s for s in script.splitlines(True) if s.strip("\r\n")])
+
+
+	# comment = pyparsing.nestedExpr(";", "!").suppress()
+	# script = comment.transformString(script)
+
+	translated = (parser(script).expr())
+
+	with open(os.path.join(pwd, "turing.py"), "w+") as f:
+		f.write("""
+
+import os
+# import _ctypes
+
+def inStr(s1, s2):
+	return (s1 in s2)
+
+def read():
+	return input()
+
+def write(a):
+	print(a, end='')
+
+def writeln(a):
+	print(a)
+
+def get_char():
+	return input()[0]
+
+def Add(a, b):
+	return a+b
+
+def Sub(a, b):
+	return a-b
+
+def Negative(a):
+	return -a	
+
+def Mul(a, b):
+	return a*b
+
+def Div(a, b):
+	return int(a/b)
+
+def Int(a):
+	return int(a)
+
+def String(a):
+	return str(a)
+
+def Is(a, b):
+	return (a==b)
+
+def Not(a):
+	return (not a)
+
+def And(a, b):
+	return (a and b)
+
+def Or(a, b):
+	return (a or b)
+
+# def dereference(obj_id):
+#     return _ctypes.PyObj_FromPtr(obj_id)
+
+def append(a, b):
+	c = list(a)
+	c.append(b)
+	return c
+
+def empty(a):
+	return []
+
+def console(a):
+	os.system(a)
+
+
+""")
+		for func in listOfFunctions:
+			# print(func)
+			f.write(func)
+		f.write(translated)
+		f.close()
+
+	os.system("cd " + pwd + "\nclear\npython3 " + os.path.join(pwd, "turing.py"))

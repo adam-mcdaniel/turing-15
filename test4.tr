@@ -1,0 +1,9 @@
+; (require "test")
+(require "test3")
+
+(func start
+	m <- (Mole)
+	atom <- (Metal "Li" 7)
+
+	(m.print_moles atom 1.182))
+(start)

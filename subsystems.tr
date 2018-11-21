@@ -1,0 +1,372 @@
+(!require "wpilib")
+(!require "ctre")
+(!require "sensors")
+(!require "controls")
+(!require "networktables")
+
+; DASHBOARD
+dashboard <- (NetworkTables.getTable "SmartDashboard")
+
+(func GetPosition
+      (return
+            (dashboard.getString
+                  "Auto Selector"
+                  "Center"
+            )
+      )
+)
+
+compressor <- (Compressor)
+
+; DRIVE TRAIN
+leftFrontMotor <- (DriveMotor 1)
+leftCenterMotor <- (FollowMotor 3 leftFrontMotor)
+leftRearMotor <- (DriveMotor 2)
+
+rightFrontMotor <- (DriveMotor 4)
+rightCenterMotor <- (FollowMotor 5 rightFrontMotor)
+rightRearMotor <- (DriveMotor 6)
+
+; ELEVATOR
+carriageLift <- (DriveMotor 7)
+
+; INTAKE
+leftIntakeMotor <- (wpi_talonsrx.WPI_TalonSRX 8)
+rightIntakeMotor <- (wpi_talonsrx.WPI_TalonSRX 9)
+(leftIntakeMotor.setInverted True)
+
+launcherArms <- (DoubleSolenoid 20 4 5)
+lifterArms <- (DoubleSolenoid 20 2 3)
+
+; SENSORS
+!"gyro = Gyro(scale_factor=6.744578313253012)"
+(gyro.calibrate)
+
+ultrasonic_sensor <- (UltraSonicSensor 2)
+
+
+(class ChassisPIDs RobotDrive
+       (set
+           !"gyro = Gyro(scale_factor=6.744578313253012)"
+            gyroPID <- (PIDController
+                            0.045
+                            0.003
+                            0.05
+                            gyro.getAngle
+                            !"lambda a: None"
+                       )
+            motors <- (list [])
+            left_motors <- (list [])
+            right_motors <- (list [])
+       )
+
+       (init lfm lbm rfm rbm
+
+           !"super().__init__(lfm, lbm, rfm, rbm)"
+           (gyroPID.setOutputRange
+                  (Negative 0.8)
+                  0.8
+           )
+           (gyroPID.enable)
+
+           motors <- (append motors leftFrontMotor)
+           motors <- (append motors leftRearMotor)
+           motors <- (append motors rightFrontMotor)
+           motors <- (append motors rightRearMotor)
+
+           left_motors <- (append left_motors leftFrontMotor)
+           left_motors <- (append left_motors leftRearMotor)
+
+           right_motors <- (append right_motors rightFrontMotor)
+           right_motors <- (append right_motors rightRearMotor)
+
+           (for motor in motors
+                (motor.resetPostion)
+           )
+           (this.setSafetyEnabled True)
+       )
+
+
+       (func goToAngle angle
+             (gyroPID.setSetpoint angle)
+             (print (gyroPID.getP))
+             (print (gyroPID.getI))
+             (print (gyroPID.getD))
+             (for i in (range 0 150)
+                  (timer.Timer.delay (Div 1 50))
+                  (dashboard.putNumber
+                        "Angle"
+                        (gyro.getAngle)
+                  )
+                  (this.arcadeDrive 0 (gyroPID.get))
+             )
+       )
+
+       (func autoDrive angle
+             (goToAngle angle)
+       )
+
+       (func Out
+             (pass)
+       )
+)
+
+
+(class Chassis ChassisPIDs
+    (set
+        shifter <- (DoubleSolenoid 20 0 1)
+        currentGear <- "Extended"
+    )
+    (init lfm lbm rfm rbm
+        !"super().__init__(lfm, lbm, rfm, rbm)"
+    )
+
+    (func update joystick buttons
+
+        (dashboard.putNumber
+             "RightFrontPosition"
+             (rightFrontMotor.getPosition)
+        )
+        (dashboard.putNumber
+             "LeftFrontPosition"
+             (leftFrontMotor.getPosition)
+        )
+        (dashboard.putNumber
+             "Gyro"
+             (gyro.getAngle)
+        )
+
+        !"self.arcadeDrive(joystick.getRawAxis(controls.joystick['forward-axis']), joystick.getRawAxis(controls.joystick['turn-axis']) * 0.8)"
+
+    )
+
+    (func shift
+        (this.arcadeDrive 0 0)
+        (timer.Timer.delay 0.2)
+        (if (Is currentGear "Extended")
+            currentGear <- "Retracted"
+            (shifter.set DoubleSolenoid.Value.kReverse)
+        )
+        (elif (Is currentGear "Retracted")
+            currentGear <- "Extended"
+            (shifter.set DoubleSolenoid.Value.kReverse)
+        )
+    )
+
+    (func getLeftPosition
+          (return (leftFrontMotor.getRawPosition))
+    )
+
+    (func getRightPosition
+          (return (rightFrontMotor.getRawPosition))
+    )
+)
+
+(class Launcher RobotDrive
+    (set
+        launchA <- None
+        liftA <- None
+        currentLifted <- "Extended"
+        locked <- True
+        cubeState <- True
+        wait <- 0
+    )
+
+    (init launcherArms lifterArms
+        !"super().__init__(leftIntakeMotor, rightIntakeMotor)"
+        launchA <- launcherArms
+        liftA <- lifterArms
+        (liftA.set DoubleSolenoid.Value.kReverse)
+        (this.toggle)
+        (this.toggle)
+        (this.setSafetyEnabled True)
+    )
+
+    (func update joystick buttons
+        !"t = controls.joystick['intake']"
+        (if (joystick.getRawButton t)
+            (intake)
+        )
+        !"t = controls.joystick['outtake']"
+        (if (joystick.getRawButton t)
+            (outtake)
+            cubeState <- False
+        )
+        !"t = controls.joystick['launch']"
+        (if (joystick.getRawButton t)
+            (launch)
+            cubeState <- False
+        )
+        !"t = controls.joystick['toggle']"
+        (if (And (joystick.getRawButton t) (Or (Less wait 0) (Is wait 0)))
+            (toggle)
+            wait <- 25
+            (if locked
+                locked <- False
+                (close)
+            )
+            (else
+                locked <- True
+            )
+        )
+        (else
+            wait <- (Sub wait 1)
+        )
+        !"t = buttons.getRawButton(controls.buttons['close']) or joystick.getRawButton(controls.joystick['close']) or self.locked"
+        (if t
+            (close)
+        )
+        (else
+            (open)
+        )
+
+        (if (cube)
+            (dashboard.putNumber "HasCube" 1)
+        )
+        (else
+            (dashboard.putNumber "HasCube" 0)
+        )
+    )
+
+    (func launch
+        (this.arcadeDrive (Negative 1) 0)
+    )
+
+    (func intake
+        (this.arcadeDrive 0.8 0)
+    )
+
+    (func cube
+        !"t = leftIntakeMotor.getOutputCurrent() > 28 and rightIntakeMotor.getOutputCurrent() > 28"
+        (return t)
+    )
+
+    (func outtake
+        (this.arcadeDrive (Negative 0.65) 0)
+    )
+
+    (func cattywampus
+        (this.arcadeDrive 0 (Negative 0.7))
+    )
+
+    (func toggle
+        (if (Is currentLifted "Extended")
+            currentLifted <- "Retracted"
+            (liftA.set DoubleSolenoid.Value.kReverse)
+        )
+        (else
+            currentLifted <- "Extended"
+            (liftA.set DoubleSolenoid.Value.kForward)
+        )
+    )
+
+    (func open
+        (launchA.set DoubleSolenoid.Value.kForward)
+    )
+
+    (func close
+        (launchA.set DoubleSolenoid.Value.kReverse)
+    )
+)
+
+(class Elevator
+    (set
+        state <- "Descending"
+        cycle <- 0
+        carriageL <- None
+        launcherArms <- None
+        lim <- None
+        rim <- None
+    )
+
+    (init carriageLift lA LIM RIM
+        carriageL <- carriageLift
+        launcherArms <- lA
+        lim <- LIM
+        rim <- RIM
+    )
+
+    (func getPosition
+        (return (carriageL.getPosition))
+    )
+
+    (func lift
+        state <- "Lifting"
+    )
+
+    (func descend
+        state <- "Descending"
+    )
+
+    (func exchange
+        (carriageL.set (Negative 0.6))
+        (launcherArms.set DoubleSolenoid.Value.kReverse)
+        (timer.Timer.delay 0.6)
+        r <- (RobotDrive lim rim)
+        (r.arcadeDrive (Negative 1) 0)
+        (carriageL.set 0)
+        (timer.Timer.delay 0.4)
+    )
+
+    (func update joystick buttons
+        !"t = controls.joystick['lift']"
+        (if (joystick.getRawButton t)
+            (this.lift)
+        )
+        !"t = controls.joystick['descend']"
+        (if (joystick.getRawButton t)
+            (this.descend)
+        )
+        !"t = controls.joystick['exchange']"
+        (if (joystick.getRawButton t)
+            (this.exchange)
+        )
+
+
+        (if (Is state "Descending")
+            (carriageL.set 0)
+            cycle <- 0
+        )
+        (elif (Is state "Lifting")
+            (if (Less cycle 30)
+                (carriageL.set (Negative 1))
+                cycle <- (Add cycle 1)
+            )
+            (elif (Less cycle 40)
+                (carriageL.set (Negative 0.4))
+                cycle <- (Add cycle 1)
+            )
+            (else
+                (carriageL.set (Negative 0.1))
+            )
+        )
+
+
+        (dashboard.putNumber
+            "Elevator position"
+            (getPosition)
+        )
+    )
+)
+
+
+(func HiroChassis
+    (return
+        (Chassis
+            leftFrontMotor
+            leftRearMotor
+            rightFrontMotor
+            rightRearMotor
+        )
+    )
+)
+
+(func HiroLauncher
+    (return (Launcher launcherArms lifterArms))
+)
+
+(func HiroElevator
+    (return (Elevator carriageLift launcherArms leftIntakeMotor rightIntakeMotor))
+)
+
+!"dashboard.putStringArray('Auto List', ['Left', 'Right', 'Center'])"

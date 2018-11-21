@@ -1,0 +1,63 @@
+(require "board")
+(require "wall")
+(require "player")
+(require "controls")
+(func build_wall x y _x _y
+	store_walls <- (list [Wall])
+	(for i in (range x _x)
+		(for j in (range y _y)
+			w <- (Wall i j)
+			store_walls <- (append store_walls w)
+		)
+	)
+	(return store_walls))
+
+(func draw_box x y _x _y
+	ws <- (list [[Wall]])
+
+	store_walls <- (build_wall
+		x y (Add x 1) (Sub _y 1))
+	ws <- (append ws store_walls)
+
+	store_walls <- (build_wall
+		x y (Sub _x 1) (Add x 1))
+	ws <- (append ws store_walls)
+
+	store_walls <- (build_wall
+		x (Sub _y 2) (Sub _y 1) (Sub _y 1))
+	ws <- (append ws store_walls)
+
+	store_walls <- (build_wall
+		(Sub _x 2) x (Sub _x 1) (Sub _y 1))
+	ws <- (append ws store_walls)
+	(return ws))
+
+(func start
+	size <- 16
+
+	ws <- (list [[Wall]])
+	b <- (Board size)
+	player <- (Player (Div size 2) (Div size 2))
+	input <- (list [int])
+	controls <- (Controls)
+
+	; (for wall_list in (draw_box 0 0 size size)
+	; 	ws <- (append ws wall_list))
+
+	(while True
+
+		(for wall_list in ws
+			(for wall in wall_list
+				(b.add_wall wall)
+			)
+		)
+
+		(b.add_player player)
+		(b.print_board)
+
+		(b.change_val player.x player.y " ")
+		input <- (controls.get_input)
+		(player.move input)
+	)
+)
+(start)

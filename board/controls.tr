@@ -1,0 +1,33 @@
+(class Controls
+	(set
+		input <- ""
+		movement <- (list [int]))
+
+		
+	(func get_input
+		m_length <- (len movement)
+
+		(for x in (range 0 m_length)
+			movement[x] <- 0)
+
+		input <- (get_char)
+
+		(if (inStr "w" input)
+			movement[1] <- -1
+		)
+		(elif (inStr "a" input)
+			movement[0] <- -1
+		)
+		(elif (inStr "s" input)
+			movement[1] <- 1
+		)
+		(elif (inStr "d" input)
+			movement[0] <- 1
+		)
+		(return movement)
+		)
+
+	(init
+		movement <- (append movement 0)
+		movement <- (append movement 0))
+)

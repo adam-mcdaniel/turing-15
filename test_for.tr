@@ -1,0 +1,8 @@
+numbers <- (list [])
+numbers <- (append numbers 9)
+numbers <- (append numbers 99)
+numbers <- (append numbers 999)
+
+(for x in numbers
+      (print x)
+)

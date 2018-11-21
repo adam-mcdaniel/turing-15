@@ -1,0 +1,156 @@
+(!require "wpilib")
+(!require "networktables")
+(!require "ctre")
+
+
+(class MyRobot IterativeRobot
+	(set
+; 		driving motors!
+		right_a <- None
+		right_b <- None
+		left_a <- None
+		left_b <- None
+		robot_drive <- None
+
+
+; 		other motors!
+		winch <- None
+
+
+; 		pnuematics!
+		compressor <- None
+		gearGrabber <- None
+
+
+; 		controls!
+		stick <- None
+		buttons <- None
+
+; 		sensors!
+		gyro <- None
+
+;		PID!
+		gyroPidOutput <- None
+		gyroPid <- None
+
+;		dashboard!
+		sd <- None
+
+	)
+
+	(func robotInit
+
+; 		driving motors!
+		right_a <- (CANTalon 1)
+		right_b <- (CANTalon 2)
+		left_a <- (CANTalon 3)
+		left_b <- (CANTalon 4)
+
+    (right_a.setControlMode CANTalon.ControlMode.PercentVbus)
+    (left_a.setControlMode  CANTalon.ControlMode.PercentVbus)
+    (right_b.setControlMode CANTalon.ControlMode.PercentVbus)
+    (left_b.setControlMode CANTalon.ControlMode.PercentVbus)
+
+		robot_drive <- (RobotDrive
+							left_a right_a
+							left_b right_b
+						)
+
+; 		other motors!
+        winch <- (CANTalon 5)
+
+; 		pneumatics!
+        compressor <- (Compressor)
+        gearGrabber <- (DoubleSolenoid 6 0 1)
+
+; 		controls!
+        stick <- (Joystick 0)
+        buttons <- (Joystick 1)
+
+; 		sensors!
+        gyro <- (adxrs450_gyro.ADXRS450_Gyro)
+
+
+
+; 		dashboard!
+        sd <- (NetworkTables.getTable "SmartDashboard")
+        (sd.putBoolean "DB/Button 1" True)
+
+
+        dirs <- (list [string])
+        dirs <- (append dirs "left")
+        dirs <- (append dirs "center")
+        dirs <- (append dirs "right")
+
+        (sd.putStringArray
+	        "autonomous/options"
+			dirs
+		)
+
+        (sd.putString "autonomous/selected" "left")
+
+
+	)
+
+
+    (func autonomousInit
+    	(pass)
+	)
+    (func autonomousPeriodic
+        (pass)
+	)
+
+	(func teleopInit
+		(pass)
+	)
+
+	(func teleopPeriodic
+		(robot_drive.arcadeDrive
+			(Negative 1)
+			1
+		)
+
+
+		(if (buttons.getRawButton 1)
+			(gearGrabber.set DoubleSolenoid.Value.kReverse)
+		)
+		(else
+			(gearGrabber.set DoubleSolenoid.Value.kForward)
+		)
+
+		(if (buttons.getRawButton 6)
+			(winch.set (Negative 1))
+		)
+		(elif (buttons.getRawButton 5)
+			(winch.set (Negative 0.4))
+		)
+		(else
+			(winch.set 0)
+		)
+
+		(if (stick.getRawButton 1)
+			(robot_drive.arcadeDrive
+				(Negative (stick.getY) )
+				(Mul (stick.getAxis 2) 0.83)
+			)
+		)
+		(elif (stick.getRawButton 2)
+			(robot_drive.arcadeDrive
+				(Mul (Negative (stick.getY)) 0.51)
+				(Mul (stick.getAxis 2) 0.43)
+			)
+		)
+		(else
+			(robot_drive.arcadeDrive
+				(Mul (Negative (stick.getY)) 0.91)
+				(Mul (stick.getAxis 2) 0.63)
+			)
+		)
+	)
+
+	(func testPeriodic
+		(LiveWindow.run)
+	)
+)
+
+(run MyRobot)

@@ -1,0 +1,9 @@
+listOfFunctions <- (list [[int]])
+empty <- (list [int])
+
+
+listOfFunctions <- (append listOfFunctions empty)
+listOfFunctions[0] <- (append listOfFunctions[0] 29)
+
+
+(println listOfFunctions[0][0])

@@ -1,0 +1,15 @@
+(class Player
+	(set
+		x <- 0
+		y <- 0)
+
+	(func move movement
+		x <- (Add x movement[0])
+		y <- (Add y movement[1])
+	)
+
+	(init _x _y
+		x <- _x
+		y <- _y
+	)
+)

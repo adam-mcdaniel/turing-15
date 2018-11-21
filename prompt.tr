@@ -1,0 +1,10 @@
+(func prompt a
+	(print a)
+	b <- (read)
+	(return b)
+)
+
+
+x <- (prompt "hey: ")
+
+(println x)

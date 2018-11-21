@@ -1,0 +1,119 @@
+(!require "wpilib")
+(!require "networktables")
+(!require "sensors")
+(!require "controls")
+(require "subsystems")
+
+
+(class Hiro IterativeRobot
+
+    (set
+        buttons <- (Joystick 0)
+        joystick <- (Joystick 1)
+
+        chassis <- (HiroChassis)
+        launcher <- (HiroLauncher)
+        elevator <- (HiroElevator)
+        ; pathfinder <- (HiroPathfinder (getPeriod))
+        recordedjoystick <- (RecordJoystick)
+        FMS <- None
+        dashboard <- (NetworkTables.getTable "SmartDashboard")
+    )
+
+    (func robotInit
+        FMS <- (driverstation.DriverStation.getInstance)
+    )
+
+    (func autonomousInit
+        (chassis.autoDrive
+            (dashboard.getNumber "Setpoint" 0)
+        )
+
+        GameState <- (FMS.getGameSpecificMessage)
+        HiroPosition <- (GetPosition)
+        (print GameState)
+        (print HiroPosition)
+
+        (if (Is HiroPosition "Left")
+            (if (Is GameState[1] "L")
+                recordedjoystick <- (recordedjoystick.load "ScaleLeft")
+            )
+            (elif (Is GameState[0] "L")
+                recordedjoystick <- (recordedjoystick.load "SwitchLeft")
+            )
+            (else
+                recordedjoystick <- (RecordJoystick)
+            )
+        )
+
+
+        (elif (Is HiroPosition "Center")
+            (if (Is GameState "L")
+                recordedjoystick <- (recordedjoystick.load "SwitchLeftCenter")
+            )
+            (else
+                recordedjoystick <- (recordedjoystick.load "SwitchRightCenter")
+            )
+        )
+
+
+        (else
+            recordedjoystick <- (RecordJoystick)
+        )
+    )
+
+    ; (func autonomousPeriodic
+    ;       (chassis.update
+    ;           recordedjoystick
+    ;           buttons
+    ;       )
+    ;
+    ;       (launcher.update
+    ;           recordedjoystick
+    ;           buttons
+    ;       )
+    ;
+    ;       (elevator.update
+    ;           recordedjoystick
+    ;           buttons
+    ;       )
+    ;
+    ;       (recordedjoystick.next)
+    ; )
+
+    (func teleopInit
+        recordedjoystick <- (RecordJoystick)
+    )
+
+    (func teleopPeriodic
+        (chassis.update
+            joystick
+            buttons
+        )
+
+        (launcher.update
+            joystick
+            buttons
+        )
+
+        (elevator.update
+            joystick
+            buttons
+        )
+
+        (recordedjoystick.recordAxes joystick)
+        (recordedjoystick.recordButtons joystick)
+    )
+
+
+    (func testInit
+        (recordedjoystick.finish "SwitchRightCenter")
+          (print recordedjoystick)
+          (LiveWindow.run)
+    )
+)
+
+
+(if (Is __name__ "__main__")
+    (run Hiro)
+)

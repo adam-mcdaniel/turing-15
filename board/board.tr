@@ -1,0 +1,49 @@
+(class Board
+	(set
+		board_list <- (list [[string]])
+		empty_list <- (list [string])
+		size <- 0
+	)
+
+	(func empty_board
+		board_list <- (empty board_list)
+		(for x in (range 0 size)
+			board_list <- (append board_list empty_list)
+		)
+		(for x in (range 0 size)
+			(for y in (range 0 size)
+				board_list[x] <- (append board_list[x] " ")
+			)
+		)
+	)
+
+	(func print_board
+		(console "clear")
+		(for y in (range 0 size)
+			(for x in (range 0 size)
+				(print board_list[y][x])
+			)
+			(println "")
+		)
+	)
+
+	(func change_val x y val
+		board_list[y][x] <- val
+	)
+
+	(func add_wall wall
+		(change_val wall.x wall.y "W"))
+
+	(func add_player player
+		(change_val player.x player.y "A"))
+
+	(init _size
+		size <- _size
+		(empty_board)
+	)
+)
+
+
+b <- (Board 16)
+
+(b.print_board)

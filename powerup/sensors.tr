@@ -1,0 +1,81 @@
+(!require "wpilib")
+(!require "ctre")
+(!require "time")
+
+
+(class Gyro adxrs450_gyro.ADXRS450_Gyro
+    !"\tdef __init__(self, **kwargs):\n\t\tself.scale_factor = kwargs['scale_factor']\n\t\tsuper().__init__()"
+    (func getAngle
+        s <- (super)
+        (return
+            (Mul (s.__init__) this.scale_factor)
+        )
+    )
+
+    (func reset
+        (this.calibrate)
+    )
+
+)
+
+(class UltraSonicSensor
+    (set
+        analog_input <- None
+        inches_away <- 0
+        cycle_limit <- 4
+        PID <- None
+    )
+    (init channel
+        analog_input <- (analoginput.AnalogInput channel)
+        inches_away <- (Mul 83.99972000000001 (analog_input.getAverageVoltage))
+        PID <- (PIDController 0.03 0 0.1 this.AvgInchesAway this.Out)
+        (PID.setSetpoint 0)
+        (PID.enable)
+    )
+
+    (func AvgInchesAway
+        inches_away <- (Mul inches_away (Div (Sub this.cycle_limit 1) cycle_limit))
+        inches_away <- (Add inches_away (Div (Mul 83.99972000000001 (this.analog_input.getAverageVoltage)) this.cycle_limit))
+        (return this.inches_away)
+    )
+
+    (func InchesAway
+        (return (Mul 83.99972000000001 (analog_input.getAverageVoltage)))
+    )
+
+    (func returnSpeed
+        (this.PID.get)
+    )
+
+    (func setTarget distance
+        (this.PID.setSetpoint distance)
+    )
+
+    (func Out input
+        (pass)
+    )
+)
+
+
+(class DriveMotor wpi_talonsrx.WPI_TalonSRX
+    (set
+        inverted <- 1
+        PID <- None
+    )
+
+    (init CAN_Id
+        !"super().__init__(CAN_Id)"
+        inverted <- 1
+        PID <- (PIDController 0.22 0 0.33 this.getPosition this.Out)
+        (this.PID.setSetpoint 0)
+        (this.PID.enable)
+    )
+
+    (func invert
+        inverted <- (Negative 1)
+    )
+
+    (func getSpeed
+        (return (Mul (Mul (Mul this.inverted (Div (this.getPulseWidthVelocity) 4096) 10) 6) 3.14159) )
+    )
+)

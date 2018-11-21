@@ -1,0 +1,31 @@
+; (require "print")
+
+(class Dog
+	(set
+		name <- ""
+		list <- (list [[int]])
+		sub <- (list [int])
+	)
+
+	(init a
+		name <- a
+
+		(for x in (range 0 8)
+			list <- (append list sub))
+
+		list[0] <- (range 0 8)
+		(write "size of ")
+		(write name)
+		(write "'s list is: ")
+		(writeln (len list)))
+
+	(func bark
+		(write "bark!"))
+
+	(func print_name
+		(write name)))
+(func new_dog
+	dog <- (Dog "adam")
+	(return dog))
+
+a <- (new_dog)

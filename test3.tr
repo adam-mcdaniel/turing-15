@@ -1,0 +1,56 @@
+(class Atom
+	(set
+		name <- ""
+		mass <- 0)
+
+	(func print_info
+		(println name)
+		(println mass))
+
+	(init n m
+		name <- n
+		mass <- m)
+
+	(init
+		name <- "H"
+		mass <- 1))
+
+
+(class Mole
+	(set
+		number_of_atoms <- "6.022*10^23 atoms in a mole"
+		atoms <- (list [Atom]))
+
+	(func print_info
+		(println number_of_atoms)
+		(for atom in atoms
+			(atom.print_info)))
+
+	(func print_moles a moles
+		store_moles <- (Mul a.mass moles)
+		(print store_moles)
+		(print " grams of ")
+		(print a.name)
+		(print " in ")
+		(print moles)
+		(if (Is moles 1)
+			(println " mole")
+		)
+		(else
+			(println " moles")
+		)
+	)
+
+	(init
+		(print_info)))
+
+(class Metal Atom
+	(set
+		name <- ""
+		mass <- 0
+	)
+	(init n m
+		name <- n
+		mass <- m
+	)
+)

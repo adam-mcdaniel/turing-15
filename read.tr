@@ -1,0 +1,4 @@
+(func read
+	a <- ""
+	read a
+	return a)

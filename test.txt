@@ -1,0 +1,19 @@
+; welcome to the turing language!!!
+
+; (func print a
+; 	println a)
+; (func run
+; 	(while True 
+; 		(print "Hello Functions!") ) )
+
+; (func game
+; 	input = ""
+; 	(while True
+; 		println "You are in a dark room, what do you do?"
+; 		print ">"
+; 		system "cat main.tr"
+; 		read input) )
+
+; (game)
+
+system "cat main.tr > test.txt"
